@@ -119,8 +119,8 @@ def _tuples(*args: int | tuple[int, int]) -> tuple[tuple[int, int], ...]:
 ### relu ###
 
 
-def relu(x: npt.ArrayLike) -> Array:
-    x = _asarray_(x)
+def relu(input: npt.ArrayLike) -> Array:
+    x = _asarray_(input)
     if x.requires_grad:
         prevs = (x,)
         backward = lambda out: _relu_backward(out, x)
@@ -146,44 +146,48 @@ def _relu_backward(out: Array, x: Array) -> None:
 
 
 def conv2d(
-    x: npt.ArrayLike,
+    input: npt.ArrayLike,
     weight: npt.ArrayLike,
     stride: int | tuple[int, int] = 1,
     padding: int | tuple[int, int] = 0,
     dilation: int | tuple[int, int] = 1,
 ) -> Array:
-    x, weight = _asarray_(x), _asarray_(weight)
+    x, w = _asarray_(input), _asarray_(weight)
 
     ndim = 4
-    if x.ndim != ndim or weight.ndim != ndim:
+    if x.ndim != ndim or w.ndim != ndim:
         raise ValueError(
-            f"expected {ndim} dimensions for input and weight arrays, but got {x.ndim} and {weight.ndim}"
+            f"expected {ndim} dimensions for input and weight arrays, but got {x.ndim} and {w.ndim}"
         )
 
     stride, padding, dilation = _tuples(stride, padding, dilation)
 
     # both arrays need to be (n, out_ch, in_ch, h, w)
     x_data = np.expand_dims(x.data, 1)  # -> (n, 1, in_ch, x_h, x_w)
-    weight_data = np.expand_dims(weight.data, 0)  # -> (1, out_ch, in_ch, w_h, w_w)
+    w_data = np.expand_dims(w.data, 0)  # -> (1, out_ch, in_ch, w_h, w_w)
 
     x_data = _np_pad(x_data, padding)
-    weight_data = _np_dilate(weight_data, dilation)
+    w_data = _np_dilate(w_data, dilation)
 
     # trim x
     s_h, s_w = stride
     if s_h > 1 or s_w > 1:
         x_h, x_w = x_data.shape[-2:]
-        w_h, w_w = weight_data.shape[-2:]
+        w_h, w_w = w_data.shape[-2:]
         x_h -= (x_h - w_h) % s_h
         x_w -= (x_w - w_w) % s_w
         x_data = x_data[..., :x_h, :x_w]  # x_data is a view
 
-    out_data = _np_conv2d(x_data, weight_data, stride).sum(2)  # sum over in_ch
+    out_data = _np_conv2d(x_data, w_data, stride).sum(2)  # sum over in_ch
 
-    prevs = tuple(a for a in (x, weight) if a.requires_grad)
+    prevs = tuple(a for a in (x, w) if a.requires_grad)
     if prevs:
+        if not x.requires_grad:
+            x = w_data = None
+        if not w.requires_grad:
+            w = x_data = None
         backward = lambda out: _conv2d_backward(
-            out, x, weight, x_data, weight_data, stride, padding, dilation
+            out, x, w, x_data, w_data, stride, padding, dilation
         )
     else:
         backward = None
@@ -193,10 +197,10 @@ def conv2d(
 
 def _conv2d_backward(
     out: Array,
-    x: Array,
-    weight: Array,
-    x_data: npt.NDArray,
-    weight_data: npt.NDArray,
+    x: Array | None,
+    w: Array | None,
+    x_data: npt.NDArray | None,
+    w_data: npt.NDArray | None,
     stride: tuple[int, int],
     padding: tuple[int, int],
     dilation: tuple[int, int],
@@ -205,32 +209,34 @@ def _conv2d_backward(
     out_grad = np.expand_dims(out.grad, 2)  # -> (n, out_ch, 1, out_h, out_w)
     out_grad = _np_dilate(out_grad, stride)
 
-    if x.requires_grad:
+    if x is not None and x.requires_grad:
         assert x.grad is not None
-        w_h, w_w = weight_data.shape[-2:]
+        assert w_data is not None
+        w_h, w_w = w_data.shape[-2:]
         out_grad_ = _np_pad(out_grad, (w_h - 1, w_w - 1))
-        weight_data_ = np.flip(np.flip(weight_data, -1), -2)  # rotate by 180
-        x_grad = _np_conv2d(out_grad_, weight_data_, (1, 1)).sum(1)
-        assert x_grad.shape == x_data.squeeze(1).shape
+        w_data_ = np.flip(np.flip(w_data, -1), -2)  # rotate by 180
+        x_grad = _np_conv2d(out_grad_, w_data_, (1, 1)).sum(1)
+        # assert x_grad.shape == x_data.squeeze(1).shape
         x_grad = _np_trim_padding(x_grad, padding, x.shape[-2:])  # type: ignore
         x_h, x_w = x_grad.shape[-2:]  # consider eventual trimming in the forward pass
         x.grad[..., :x_h, :x_w] += x_grad  # ignore trimmed elements
 
-    if weight.requires_grad:
-        assert weight.grad is not None
-        weight.grad += _np_conv2d(x_data, out_grad, dilation).sum(0)
+    if w is not None and w.requires_grad:
+        assert w.grad is not None
+        assert x_data is not None
+        w.grad += _np_conv2d(x_data, out_grad, dilation).sum(0)
 
 
 ### max_pool ###
 
 
 def max_pool2d(
-    x: npt.ArrayLike,
+    input: npt.ArrayLike,
     kernel_size: int | tuple[int, int],
     stride: int | tuple[int, int] | None = None,
     padding: int | tuple[int, int] = 0,
 ) -> Array:
-    x = _asarray_(x)
+    x = _asarray_(input)
 
     stride = kernel_size if stride is None else stride
     kernel_size, stride, padding = _tuples(kernel_size, stride, padding)
@@ -283,12 +289,12 @@ def _max_pool2d_backward(
 
 
 def avg_pool2d(
-    x: npt.ArrayLike,
+    input: npt.ArrayLike,
     kernel_size: int | tuple[int, int],
     stride: int | tuple[int, int] | None = None,
     padding: int | tuple[int, int] = 0,
 ) -> Array:
-    x = _asarray_(x)
+    x = _asarray_(input)
 
     stride = kernel_size if stride is None else stride
     kernel_size, stride, padding = _tuples(kernel_size, stride, padding)
@@ -335,16 +341,16 @@ def _avg_pool2d_backward(
 ### softmax / cross_entropy ###
 
 
-def softmax(x: npt.ArrayLike, axis: int) -> Array:
-    x = _asarray_(x)
+def softmax(input: npt.ArrayLike, axis: int) -> Array:
+    x = _asarray_(input)
     if not x.ndim:
         raise ValueError("input must have at least 1 dimension")
     exp_ = np.exp(x - np.amax(x, axis, keepdims=True))
     return exp_ / np.sum(exp_, axis=axis, keepdims=True)
 
 
-def cross_entropy(x: npt.ArrayLike, target: npt.ArrayLike) -> Array:
-    x, target = _asarray_(x), np.asarray(target)
+def cross_entropy(input: npt.ArrayLike, target: npt.ArrayLike) -> Array:
+    x, target = _asarray_(input), np.asarray(target)
 
     if x.ndim == 1:
         x = np.expand_dims(x, 0)

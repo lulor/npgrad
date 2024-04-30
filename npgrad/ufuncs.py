@@ -89,10 +89,10 @@ def _multiply_backward(out: Array, x1: Array, x2: Array) -> None:
     assert out.grad is not None
     if x1.requires_grad:
         assert x1.grad is not None
-        x1.grad += _np_reduce_to(out.grad * np.asarray(x2), x1.shape)
+        x1.grad += _np_reduce_to(out.grad * x2.data, x1.shape)
     if x2.requires_grad:
         assert x2.grad is not None
-        x2.grad += _np_reduce_to(out.grad * np.asarray(x1), x2.shape)
+        x2.grad += _np_reduce_to(out.grad * x1.data, x2.shape)
 
 
 @implements(np.matmul)
