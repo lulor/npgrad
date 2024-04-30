@@ -1,6 +1,6 @@
 # npgrad
 
-A slow and inefficient autograd engine built on NumPy, offering a PyTorch-like API for some basic neural net operations (linear transformation, 2D convolution and pooling). This is only meant to be a proof-of-concept built for fun, inspired by Andrej Karpathy's [micrograd](https://github.com/karpathy/micrograd).
+A simple (and probably quite inefficient) autodiff engine built on NumPy, offering a PyTorch-like API for some basic neural net operations (linear transformation, 2D convolution and pooling). This is only meant to be a proof-of-concept built for fun, inspired by Andrej Karpathy's [micrograd](https://github.com/karpathy/micrograd).
 
 ### Functioning
 
