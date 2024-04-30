@@ -5,7 +5,7 @@ import numpy.typing as npt
 
 from ..array import Array
 from . import functional as F
-from .utils import tuples
+from .utils import as_tuples
 
 _DEFAULT_DTYPE = np.float32
 
@@ -66,7 +66,7 @@ class Conv2d(Module):
         bias: bool = False,
     ) -> None:
         super().__init__()
-        kernel_size, stride, padding, dilation = tuples(
+        kernel_size, stride, padding, dilation = as_tuples(
             kernel_size, stride, padding, dilation
         )
         if bias:
@@ -95,7 +95,7 @@ class MaxPool2d(Module):
     ) -> None:
         super().__init__()
         stride = kernel_size if stride is None else stride
-        kernel_size, stride, padding = tuples(kernel_size, stride, padding)
+        kernel_size, stride, padding = as_tuples(kernel_size, stride, padding)
         self.kernel_size = kernel_size
         self.stride = stride
         self.padding = padding
@@ -113,7 +113,7 @@ class AvgPool2d(Module):
     ) -> None:
         super().__init__()
         stride = kernel_size if stride is None else stride
-        kernel_size, stride, padding = tuples(kernel_size, stride, padding)
+        kernel_size, stride, padding = as_tuples(kernel_size, stride, padding)
         self.kernel_size = kernel_size
         self.stride = stride
         self.padding = padding

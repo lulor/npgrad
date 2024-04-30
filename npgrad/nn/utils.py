@@ -16,11 +16,11 @@ def timed(s: str | None = None):
     print(f"{prefix}time: {duration}")
 
 
-def tuples(*args: int | tuple[int, int]) -> tuple[tuple[int, int], ...]:
+def as_tuples(*args: int | tuple[int, int]) -> tuple[tuple[int, int], ...]:
     return tuple(arg if isinstance(arg, tuple) else (arg, arg) for arg in args)
 
 
-def np_full_like(
+def _np_full_like(
     x: npt.NDArray, space_dims: tuple[int, int], fill_value: float
 ) -> npt.NDArray:
     assert x.ndim >= 2
@@ -33,7 +33,7 @@ def np_dilate(x: npt.NDArray, dilation: tuple[int, int]) -> npt.NDArray:
     if d_h > 1 or d_w > 1:
         h, w = x.shape[-2:]
         h, w = d_h * (h - 1) + 1, d_w * (w - 1) + 1
-        x_dilated = np_full_like(x, (h, w), 0)
+        x_dilated = _np_full_like(x, (h, w), 0)
         x_dilated[..., ::d_h, ::d_w] = x
         x = x_dilated
     return x
@@ -71,7 +71,7 @@ def np_pad(
     if p_h or p_w:
         h, w = x.shape[-2:]
         h, w = h + 2 * p_h, w + 2 * p_w
-        x_padded = np_full_like(x, (h, w), fill_value)
+        x_padded = _np_full_like(x, (h, w), fill_value)
         if copy_input_values:
             max_h, max_w = h - p_h, w - p_w
             x_padded[..., p_h:max_h, p_w:max_w] = x

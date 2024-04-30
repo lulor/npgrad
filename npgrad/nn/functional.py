@@ -53,7 +53,7 @@ def conv2d(
             f"expected {ndim} dimensions for input and weight arrays, but got {x.ndim} and {w.ndim}"
         )
 
-    stride, padding, dilation = utils.tuples(stride, padding, dilation)
+    stride, padding, dilation = utils.as_tuples(stride, padding, dilation)
 
     x_data = utils.np_pad(x.data, padding)
     w_data = utils.np_dilate(w.data, dilation)
@@ -126,7 +126,7 @@ def max_pool2d(
     x = _asarray_(input)
 
     stride = kernel_size if stride is None else stride
-    kernel_size, stride, padding = utils.tuples(kernel_size, stride, padding)
+    kernel_size, stride, padding = utils.as_tuples(kernel_size, stride, padding)
 
     x_data = utils.np_pad(x.data, padding, np.NINF)
     x_data_w = utils.np_sliding_window(x_data, kernel_size, stride)
@@ -184,7 +184,7 @@ def avg_pool2d(
     x = _asarray_(input)
 
     stride = kernel_size if stride is None else stride
-    kernel_size, stride, padding = utils.tuples(kernel_size, stride, padding)
+    kernel_size, stride, padding = utils.as_tuples(kernel_size, stride, padding)
 
     x_data = utils.np_pad(x.data, padding)
     x_data_w = utils.np_sliding_window(x_data, kernel_size, stride)
