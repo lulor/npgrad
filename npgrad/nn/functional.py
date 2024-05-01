@@ -7,7 +7,11 @@ import numpy.typing as npt
 
 from ..array import Array
 from ..array import asarray_ as _asarray_
-from . import utils
+from . import npfuncs
+from .utils import pair as _pair
+
+_EINSUM_OPTIM = "optimal"
+
 
 ### relu ###
 
@@ -53,31 +57,15 @@ def conv2d(
             f"expected {ndim} dimensions for input and weight arrays, but got {x.ndim} and {w.ndim}"
         )
 
-    stride, padding, dilation = utils.as_tuples(stride, padding, dilation)
+    x_data = npfuncs.pad(x.data, padding)
+    x_data = npfuncs.unfold(x_data, w.shape[-2:], stride, dilation)  # type: ignore
 
-    x_data = utils.np_pad(x.data, padding)
-    w_data = utils.np_dilate(w.data, dilation)
-
-    # trim x
-    s_h, s_w = stride
-    if s_h > 1 or s_w > 1:
-        x_h, x_w = x_data.shape[-2:]
-        w_h, w_w = w_data.shape[-2:]
-        x_h -= (x_h - w_h) % s_h
-        x_w -= (x_w - w_w) % s_w
-        x_data = x_data[..., :x_h, :x_w]  # x_data is a view
-
-    out_data = utils.np_conv2d_v2(x_data, w_data, ("ni", "oi", "no"), stride)
+    out_data = np.einsum("nixyhw,oihw->noxy", x_data, w.data, optimize=_EINSUM_OPTIM)
 
     prevs = tuple(a for a in (x, w) if a.requires_grad)
+
     if prevs:
-        if not x.requires_grad:
-            x = w_data = None
-        if not w.requires_grad:
-            w = x_data = None
-        backward = lambda out: _conv2d_backward(
-            out, x, w, x_data, w_data, stride, padding, dilation
-        )
+        backward = lambda out: _conv2d_backward(out, x, w, stride, padding, dilation)
     else:
         backward = None
 
@@ -86,32 +74,27 @@ def conv2d(
 
 def _conv2d_backward(
     out: Array,
-    x: Array | None,
-    w: Array | None,
-    x_data: npt.NDArray | None,
-    w_data: npt.NDArray | None,
-    stride: tuple[int, int],
-    padding: tuple[int, int],
-    dilation: tuple[int, int],
+    x: Array,
+    w: Array,
+    stride: int | tuple[int, int],
+    padding: int | tuple[int, int],
+    dilation: int | tuple[int, int],
 ) -> None:
     assert out.grad is not None
-    out_grad = utils.np_dilate(out.grad, stride)
 
-    if x is not None and x.requires_grad:
+    if x.requires_grad:
         assert x.grad is not None
-        assert w_data is not None
-        w_h, w_w = w_data.shape[-2:]
-        out_grad_ = utils.np_pad(out_grad, (w_h - 1, w_w - 1))  # pad for "full" conv
-        w_data = np.flip(np.flip(w_data, -1), -2)  # rotate by 180
-        x_grad = utils.np_conv2d_v2(out_grad_, w_data, ("no", "oi", "ni"))
-        x_grad = utils.np_trim_padding(x_grad, padding, x.shape[-2:])  # type: ignore
-        x_h, x_w = x_grad.shape[-2:]  # consider eventual trimming in the forward pass
-        x.grad[..., :x_h, :x_w] += x_grad  # ignore trimmed elements
+        grad = np.einsum("noxy,oihw->nixyhw", out.grad, w.data, optimize=_EINSUM_OPTIM)
+        npfuncs.fold_at(x.grad, grad, w.shape[-2:], stride, padding, dilation)  # type: ignore
 
-    if w is not None and w.requires_grad:
+    if w.requires_grad:
         assert w.grad is not None
-        assert x_data is not None
-        w.grad += utils.np_conv2d_v2(x_data, out_grad, ("ni", "no", "oi"), dilation)
+        x_data = npfuncs.pad(x.data, padding)
+        x_data = npfuncs.trim(x_data, w.shape[-2:], stride, dilation)  # type: ignore
+        x_data = npfuncs.unfold(x_data, out.shape[-2:], stride=dilation, dilation=stride)  # type: ignore
+        w.grad += np.einsum(
+            "nixyhw,nohw->oixy", x_data, out.grad, optimize=_EINSUM_OPTIM
+        )
 
 
 ### max_pool ###
@@ -123,19 +106,21 @@ def max_pool2d(
     stride: int | tuple[int, int] | None = None,
     padding: int | tuple[int, int] = 0,
 ) -> Array:
+    if stride is None:
+        stride = kernel_size
+
     x = _asarray_(input)
+    x_data = npfuncs.pad(x.data, padding, np.NINF)
+    x_data = npfuncs.unfold(x_data, kernel_size, stride)
 
-    stride = kernel_size if stride is None else stride
-    kernel_size, stride, padding = utils.as_tuples(kernel_size, stride, padding)
-
-    x_data = utils.np_pad(x.data, padding, np.NINF)
-    x_data_w = utils.np_sliding_window(x_data, kernel_size, stride)
-    out_data = x_data_w.max((-2, -1))
+    axis = (-2, -1)
+    out_data = x_data.max(axis)
 
     if x.requires_grad:
         prevs = (x,)
+        mask = x_data == np.expand_dims(out_data, axis)
         backward = lambda out: _max_pool2d_backward(
-            out, x, x_data_w, kernel_size, stride, padding
+            out, x, mask, kernel_size, stride, padding
         )
     else:
         prevs = backward = None
@@ -151,25 +136,19 @@ def max_pool2d(
 def _max_pool2d_backward(
     out: Array,
     x: Array,
-    x_data_w: npt.NDArray,
-    kernel_size: tuple[int, int],
-    stride: tuple[int, int],
-    padding: tuple[int, int],
+    mask: npt.NDArray,
+    kernel_size: int | tuple[int, int],
+    stride: int | tuple[int, int],
+    padding: int | tuple[int, int],
 ) -> None:
     assert out.grad is not None
     if x.requires_grad:
         assert x.grad is not None
-        # if padding=(0, 0) work on x.grad directly, otherwise work on zero array
-        x_grad = utils.np_pad(x.grad, padding, copy_input_values=False)
-        x_grad_w = utils.np_sliding_window(x_grad, kernel_size, stride, writeable=True)
         axis = (-2, -1)
-        mask = x_data_w == np.expand_dims(out.data, axis)
         count = np.count_nonzero(mask, axis, keepdims=True)  # type: ignore
         out_grad = np.expand_dims(out.grad, axis) / count
-        out_grad = np.broadcast_to(out_grad, x_grad_w.shape)
-        np.add.at(x_grad_w, mask, out_grad[mask])
-        if any(padding):
-            x.grad += utils.np_trim_padding(x_grad, padding)
+        out_grad = np.broadcast_to(out_grad, mask.shape)
+        npfuncs.fold_at(x.grad, out_grad, kernel_size, stride, padding, indices=mask)
 
 
 ### avg_pool ###
@@ -181,14 +160,14 @@ def avg_pool2d(
     stride: int | tuple[int, int] | None = None,
     padding: int | tuple[int, int] = 0,
 ) -> Array:
+    if stride is None:
+        stride = kernel_size
+
     x = _asarray_(input)
+    x_data = npfuncs.pad(x.data, padding)
+    x_data = npfuncs.unfold(x_data, kernel_size, stride)
 
-    stride = kernel_size if stride is None else stride
-    kernel_size, stride, padding = utils.as_tuples(kernel_size, stride, padding)
-
-    x_data = utils.np_pad(x.data, padding)
-    x_data_w = utils.np_sliding_window(x_data, kernel_size, stride)
-    out_data = x_data_w.mean((-2, -1))
+    out_data = x_data.mean((-2, -1))
 
     if x.requires_grad:
         prevs = (x,)
@@ -209,20 +188,15 @@ def avg_pool2d(
 def _avg_pool2d_backward(
     out: Array,
     x: Array,
-    kernel_size: tuple[int, int],
-    stride: tuple[int, int],
-    padding: tuple[int, int],
+    kernel_size: int | tuple[int, int],
+    stride: int | tuple[int, int],
+    padding: int | tuple[int, int],
 ) -> None:
     assert out.grad is not None
     if x.requires_grad:
         assert x.grad is not None
-        # if padding=(0, 0) work on x.grad directly, otherwise work on zero array
-        x_grad = utils.np_pad(x.grad, padding, copy_input_values=False)
-        x_grad_w = utils.np_sliding_window(x_grad, kernel_size, stride, writeable=True)
-        out_grad = np.expand_dims(out.grad, (-2, -1)) / _prod(kernel_size)
-        np.add.at(x_grad_w, slice(None), out_grad)  # type: ignore
-        if any(padding):
-            x.grad += utils.np_trim_padding(x_grad, padding)
+        out_grad = np.expand_dims(out.grad, (-2, -1)) / _prod(_pair(kernel_size))
+        npfuncs.fold_at(x.grad, out_grad, kernel_size, stride, padding)
 
 
 ### softmax / cross_entropy ###

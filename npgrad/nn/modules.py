@@ -5,7 +5,7 @@ import numpy.typing as npt
 
 from ..array import Array
 from . import functional as F
-from .utils import as_tuples
+from .utils import pair
 
 _DEFAULT_DTYPE = np.float32
 
@@ -66,19 +66,18 @@ class Conv2d(Module):
         bias: bool = False,
     ) -> None:
         super().__init__()
-        kernel_size, stride, padding, dilation = as_tuples(
-            kernel_size, stride, padding, dilation
-        )
         if bias:
             raise NotImplementedError
         self.in_channels = in_channels
         self.out_channels = out_channels
-        self.kernel_size = kernel_size
-        self.stride = stride
-        self.padding = padding
-        self.dilation = dilation
+        self.kernel_size = pair(kernel_size)
+        self.stride = pair(stride)
+        self.padding = pair(padding)
+        self.dilation = pair(dilation)
         self.weight = Array(
-            np.zeros((out_channels, in_channels, *kernel_size), dtype=_DEFAULT_DTYPE)
+            np.zeros(
+                (out_channels, in_channels, *self.kernel_size), dtype=_DEFAULT_DTYPE
+            )
         )
         self.requires_grad()
 
@@ -94,11 +93,9 @@ class MaxPool2d(Module):
         padding: int | tuple[int, int] = 0,
     ) -> None:
         super().__init__()
-        stride = kernel_size if stride is None else stride
-        kernel_size, stride, padding = as_tuples(kernel_size, stride, padding)
-        self.kernel_size = kernel_size
-        self.stride = stride
-        self.padding = padding
+        self.kernel_size = pair(kernel_size)
+        self.stride = pair(kernel_size if stride is None else stride)
+        self.padding = pair(padding)
 
     def forward(self, x: npt.ArrayLike) -> Array:
         return F.max_pool2d(x, self.kernel_size, self.stride, self.padding)
@@ -112,11 +109,9 @@ class AvgPool2d(Module):
         padding: int | tuple[int, int] = 0,
     ) -> None:
         super().__init__()
-        stride = kernel_size if stride is None else stride
-        kernel_size, stride, padding = as_tuples(kernel_size, stride, padding)
-        self.kernel_size = kernel_size
-        self.stride = stride
-        self.padding = padding
+        self.kernel_size = pair(kernel_size)
+        self.stride = pair(kernel_size if stride is None else stride)
+        self.padding = pair(padding)
 
     def forward(self, x: npt.ArrayLike) -> Array:
         return F.avg_pool2d(x, self.kernel_size, self.stride, self.padding)
