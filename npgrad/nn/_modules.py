@@ -76,11 +76,9 @@ class Conv2d(Module):
         stride: int | tuple[int, int] = 1,
         padding: int | tuple[int, int] = 0,
         dilation: int | tuple[int, int] = 1,
-        bias: bool = False,
+        bias: bool = True,
     ) -> None:
         super().__init__()
-        if bias:
-            raise NotImplementedError
         self.in_channels = in_channels
         self.out_channels = out_channels
         self.kernel_size = pair(kernel_size)
@@ -92,10 +90,15 @@ class Conv2d(Module):
                 (out_channels, in_channels, *self.kernel_size), dtype=_DEFAULT_DTYPE
             )
         )
+        self.bias = (
+            Array(np.zeros(out_channels, dtype=_DEFAULT_DTYPE)) if bias else None
+        )
         self.requires_grad()
 
     def forward(self, x: ArrayLike) -> Array:
-        return F.conv2d(x, self.weight, self.stride, self.padding, self.dilation)
+        return F.conv2d(
+            x, self.weight, self.bias, self.stride, self.padding, self.dilation
+        )
 
 
 class MaxPool2d(Module):
