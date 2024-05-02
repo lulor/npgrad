@@ -3,11 +3,13 @@ from __future__ import annotations
 from typing import Callable
 
 import numpy as np
-import numpy.typing as npt
+from numpy.typing import ArrayLike, DTypeLike, NDArray
 
-type ShapeLike = int | tuple[int, ...]
+from .typing import ShapeLike
 
 _HANDLED_FUNCTIONS = {}
+
+__all__ = ["Array", "array", "asarray"]
 
 
 def implements(np_function):
@@ -32,8 +34,8 @@ def _get_item_backward(out: Array, x: Array, key) -> None:
 class Array:
     def __init__(
         self,
-        data: npt.ArrayLike,
-        dtype: npt.DTypeLike = None,
+        data: ArrayLike,
+        dtype: DTypeLike = None,
         requires_grad: bool = False,
         _prevs: tuple[Array, ...] | None = None,
         _backward: Callable[[Array], None] | None = None,
@@ -47,7 +49,7 @@ class Array:
         self._backward = _backward
         self._retains_grad = False
 
-    def __array__(self, dtype=None, copy=None) -> npt.NDArray:
+    def __array__(self, dtype=None, copy=None) -> NDArray:
         if dtype is not None and dtype != self.data.dtype:
             if copy is False:
                 raise ValueError(
@@ -72,7 +74,7 @@ class Array:
             return NotImplemented
         return _HANDLED_FUNCTIONS[func](*args, **kwargs)
 
-    def _check_array_assignment(self, value: npt.NDArray, property: str) -> None:
+    def _check_array_assignment(self, value: NDArray, property: str) -> None:
         if value.shape != self.shape:
             raise ValueError(
                 f"cannot assign {property} with shape {value.shape} to array with shape {self.shape}"
@@ -83,11 +85,11 @@ class Array:
             )
 
     @property
-    def data(self) -> npt.NDArray:
+    def data(self) -> NDArray:
         return self._data
 
     @data.setter
-    def data(self, value: npt.NDArray) -> None:
+    def data(self, value: NDArray) -> None:
         self._check_array_assignment(value, "data")
         self._data = value
 
@@ -108,11 +110,11 @@ class Array:
         return self.data.dtype
 
     @property
-    def grad(self) -> npt.NDArray | None:
+    def grad(self) -> NDArray | None:
         return self._grad
 
     @grad.setter
-    def grad(self, value: npt.NDArray | None) -> None:
+    def grad(self, value: NDArray | None) -> None:
         if value is not None:
             self._check_array_assignment(value, "grad")
         self._grad = value
@@ -192,38 +194,38 @@ class Array:
             if not n.retains_grad:
                 n.grad = None
 
-    def __add__(self, other: npt.ArrayLike) -> Array:
+    def __add__(self, other: ArrayLike) -> Array:
         return np.add(self, other)  # type: ignore
 
     __radd__ = __add__
 
-    def __mul__(self, other: npt.ArrayLike) -> Array:
+    def __mul__(self, other: ArrayLike) -> Array:
         return np.multiply(self, other)  # type: ignore
 
     __rmul__ = __mul__
 
-    def __matmul__(self, other: npt.ArrayLike) -> Array:
+    def __matmul__(self, other: ArrayLike) -> Array:
         return np.matmul(self, other)
 
-    def __rmatmul__(self, other: npt.ArrayLike) -> Array:
+    def __rmatmul__(self, other: ArrayLike) -> Array:
         return np.matmul(other, self)
 
     def __neg__(self) -> Array:
         return np.negative(self)  # type: ignore
 
-    def __pow__(self, other: npt.ArrayLike) -> Array:
+    def __pow__(self, other: ArrayLike) -> Array:
         return np.power(self, other)  # type: ignore
 
-    def __sub__(self, other: npt.ArrayLike) -> Array:
+    def __sub__(self, other: ArrayLike) -> Array:
         return np.subtract(self, other)  # type: ignore
 
-    def __rsub__(self, other: npt.ArrayLike) -> Array:
+    def __rsub__(self, other: ArrayLike) -> Array:
         return np.subtract(other, self)  # type: ignore
 
-    def __truediv__(self, other: npt.ArrayLike) -> Array:
+    def __truediv__(self, other: ArrayLike) -> Array:
         return np.divide(self, other)  # type: ignore
 
-    def __rtruediv__(self, other: npt.ArrayLike) -> Array:
+    def __rtruediv__(self, other: ArrayLike) -> Array:
         return np.divide(other, self)  # type: ignore
 
     def reshape(self, newshape: ShapeLike) -> Array:
@@ -245,7 +247,7 @@ class Array:
         return np.amin(self, axis=axis, keepdims=keepdims)
 
 
-def asarray_(data: npt.ArrayLike) -> Array:
+def asarray_(data: ArrayLike) -> Array:
     """
     Wrap the input object in an array if necessary.
 
@@ -268,7 +270,7 @@ def asarray_(data: npt.ArrayLike) -> Array:
 
 
 def array(
-    data: npt.ArrayLike, dtype: npt.DTypeLike = None, requires_grad: bool = False
+    data: ArrayLike, dtype: DTypeLike = None, requires_grad: bool = False
 ) -> Array:
     """
     Build a new array.
@@ -290,7 +292,7 @@ def array(
     return Array(np.array(data, dtype=dtype), requires_grad=requires_grad)
 
 
-def asarray(data: npt.ArrayLike, dtype: npt.DTypeLike = None) -> Array:
+def asarray(data: ArrayLike, dtype: DTypeLike = None) -> Array:
     """
     Convert the input data to an array.
 

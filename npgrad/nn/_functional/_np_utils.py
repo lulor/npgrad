@@ -3,7 +3,7 @@ from typing import Any
 import numpy as np
 from numpy.typing import NDArray
 
-from .utils import pair
+from .._utils import pair
 
 
 def _dilate_dims(

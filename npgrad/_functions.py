@@ -3,12 +3,15 @@ from __future__ import annotations
 from typing import Callable
 
 import numpy as np
-import numpy.typing as npt
+from numpy.typing import ArrayLike, NDArray
 
-from .array import Array, ShapeLike, asarray_, implements
+from ._array import Array, asarray_, implements
+from .typing import ShapeLike
+
+__all__ = ["reshape", "squeeze", "expand_dims", "sum", "mean", "min", "max"]
 
 
-def _np_expand_dims(x: npt.NDArray, axis: ShapeLike | None) -> npt.NDArray:
+def _np_expand_dims(x: NDArray, axis: ShapeLike | None) -> NDArray:
     return x if axis is None else np.expand_dims(x, axis)
 
 
@@ -16,23 +19,23 @@ def _np_expand_dims(x: npt.NDArray, axis: ShapeLike | None) -> npt.NDArray:
 
 
 @implements(np.reshape)
-def reshape(x: npt.ArrayLike, newshape: ShapeLike) -> Array:
+def reshape(x: ArrayLike, newshape: ShapeLike) -> Array:
     return _reshape(np.reshape, x, newshape)
 
 
 @implements(np.squeeze)
-def squeeze(x: npt.ArrayLike, axis: ShapeLike | None = None) -> Array:
+def squeeze(x: ArrayLike, axis: ShapeLike | None = None) -> Array:
     return _reshape(np.squeeze, x, axis)
 
 
 @implements(np.expand_dims)
-def expand_dims(x: npt.ArrayLike, axis: ShapeLike) -> Array:
+def expand_dims(x: ArrayLike, axis: ShapeLike) -> Array:
     return _reshape(np.expand_dims, x, axis)
 
 
 def _reshape(
-    np_func: Callable[..., npt.ArrayLike],
-    x: npt.ArrayLike,
+    np_func: Callable[..., ArrayLike],
+    x: ArrayLike,
     axis_or_shape: ShapeLike | None,
 ) -> Array:
     assert np_func in (np.reshape, np.squeeze, np.expand_dims)
@@ -58,22 +61,18 @@ def _reshape_backward(out: Array, x: Array) -> None:
 
 
 @implements(np.sum)
-def sum(
-    x: npt.ArrayLike, axis: ShapeLike | None = None, keepdims: bool = False
-) -> Array:
+def sum(x: ArrayLike, axis: ShapeLike | None = None, keepdims: bool = False) -> Array:
     return _sum_mean(np.sum, x, axis, keepdims)
 
 
 @implements(np.mean)
-def mean(
-    x: npt.ArrayLike, axis: ShapeLike | None = None, keepdims: bool = False
-) -> Array:
+def mean(x: ArrayLike, axis: ShapeLike | None = None, keepdims: bool = False) -> Array:
     return _sum_mean(np.mean, x, axis, keepdims)
 
 
 def _sum_mean(
-    np_func: Callable[..., npt.ArrayLike],
-    x: npt.ArrayLike,
+    np_func: Callable[..., ArrayLike],
+    x: ArrayLike,
     axis: ShapeLike | None,
     keepdims: bool,
 ) -> Array:
@@ -108,23 +107,19 @@ def _sum_mean_backward(
 
 @implements(np.min)
 @implements(np.amin)
-def min(
-    x: npt.ArrayLike, axis: ShapeLike | None = None, keepdims: bool = False
-) -> Array:
+def min(x: ArrayLike, axis: ShapeLike | None = None, keepdims: bool = False) -> Array:
     return _min_max(np.amin, x, axis, keepdims)
 
 
 @implements(np.max)
 @implements(np.amax)
-def max(
-    x: npt.ArrayLike, axis: ShapeLike | None = None, keepdims: bool = False
-) -> Array:
+def max(x: ArrayLike, axis: ShapeLike | None = None, keepdims: bool = False) -> Array:
     return _min_max(np.amax, x, axis, keepdims)
 
 
 def _min_max(
-    np_func: Callable[..., npt.ArrayLike],
-    x: npt.ArrayLike,
+    np_func: Callable[..., ArrayLike],
+    x: ArrayLike,
     axis: ShapeLike | None,
     keepdims: bool,
 ) -> Array:

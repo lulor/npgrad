@@ -4,12 +4,28 @@ from itertools import zip_longest
 from typing import Callable
 
 import numpy as np
-import numpy.typing as npt
+from numpy.typing import ArrayLike, NDArray
 
-from .array import Array, asarray_, implements
+from ._array import Array, asarray_, implements
+
+__all__ = [
+    "add",
+    "divide",
+    "exp",
+    "log",
+    "log2",
+    "log10",
+    "matmul",
+    "multiply",
+    "negative",
+    "power",
+    "sqrt",
+    "subtract",
+    "tanh",
+]
 
 
-def _np_reduce_to(x: npt.NDArray, shape: tuple[int, ...]) -> npt.NDArray:
+def _np_reduce_to(x: NDArray, shape: tuple[int, ...]) -> NDArray:
     """
     Reduce an ndarray to the specified shape performing an 'add' operation
     (can be seen as a reverse broadcasting).
@@ -40,7 +56,7 @@ def _np_reduce_to(x: npt.NDArray, shape: tuple[int, ...]) -> npt.NDArray:
 
 
 def _build_array(
-    np_ufunc: Callable[..., npt.ArrayLike],
+    np_ufunc: Callable[..., ArrayLike],
     backward_func: Callable[..., None],
     *arrays: Array,
 ) -> Array:
@@ -59,7 +75,7 @@ def _build_array(
 
 
 @implements(np.add)
-def add(x1: npt.ArrayLike, x2: npt.ArrayLike) -> Array:
+def add(x1: ArrayLike, x2: ArrayLike) -> Array:
     x1, x2 = asarray_(x1), asarray_(x2)
     return _build_array(np.add, _add_backward, x1, x2)
 
@@ -75,12 +91,12 @@ def _add_backward(out: Array, x1: Array, x2: Array) -> None:
 
 
 @implements(np.subtract)
-def subtract(x1: npt.ArrayLike, x2: npt.ArrayLike) -> Array:
+def subtract(x1: ArrayLike, x2: ArrayLike) -> Array:
     return add(x1, negative(x2))
 
 
 @implements(np.multiply)
-def multiply(x1: npt.ArrayLike, x2: npt.ArrayLike) -> Array:
+def multiply(x1: ArrayLike, x2: ArrayLike) -> Array:
     x1, x2 = asarray_(x1), asarray_(x2)
     return _build_array(np.multiply, _multiply_backward, x1, x2)
 
@@ -96,7 +112,7 @@ def _multiply_backward(out: Array, x1: Array, x2: Array) -> None:
 
 
 @implements(np.matmul)
-def matmul(x1: npt.ArrayLike, x2: npt.ArrayLike) -> Array:
+def matmul(x1: ArrayLike, x2: ArrayLike) -> Array:
     x1, x2 = asarray_(x1), asarray_(x2)
     return _build_array(np.matmul, _matmul_backward, x1, x2)
 
@@ -112,12 +128,12 @@ def _matmul_backward(out: Array, x1: Array, x2: Array) -> None:
 
 
 @implements(np.divide)
-def divide(x1: npt.ArrayLike, x2: npt.ArrayLike) -> Array:
+def divide(x1: ArrayLike, x2: ArrayLike) -> Array:
     return multiply(x1, power(x2, -1))
 
 
 @implements(np.power)
-def power(x1: npt.ArrayLike, x2: npt.ArrayLike) -> Array:
+def power(x1: ArrayLike, x2: ArrayLike) -> Array:
     x1, x2 = asarray_(x1), asarray_(x2)
     return _build_array(np.power, _power_backward, x1, x2)
 
@@ -134,12 +150,12 @@ def _power_backward(out: Array, x1: Array, x2: Array) -> None:
 
 
 @implements(np.negative)
-def negative(x: npt.ArrayLike) -> Array:
+def negative(x: ArrayLike) -> Array:
     return multiply(x, -1)
 
 
 @implements(np.exp)
-def exp(x: npt.ArrayLike) -> Array:
+def exp(x: ArrayLike) -> Array:
     return _build_array(np.exp, _exp_backward, asarray_(x))
 
 
@@ -151,7 +167,7 @@ def _exp_backward(out: Array, x: Array) -> None:
 
 
 @implements(np.log)
-def log(x: npt.ArrayLike) -> Array:
+def log(x: ArrayLike) -> Array:
     return _build_array(np.log, _log_backward, asarray_(x))
 
 
@@ -163,7 +179,7 @@ def _log_backward(out: Array, x: Array) -> None:
 
 
 @implements(np.log2)
-def log2(x: npt.ArrayLike) -> Array:
+def log2(x: ArrayLike) -> Array:
     return _build_array(np.log2, _log2_backward, asarray_(x))
 
 
@@ -175,7 +191,7 @@ def _log2_backward(out: Array, x: Array) -> None:
 
 
 @implements(np.log10)
-def log10(x: npt.ArrayLike) -> Array:
+def log10(x: ArrayLike) -> Array:
     return _build_array(np.log10, _log10_backward, asarray_(x))
 
 
@@ -187,12 +203,12 @@ def _log10_backward(out: Array, x: Array) -> None:
 
 
 @implements(np.sqrt)
-def sqrt(x: npt.ArrayLike) -> Array:
+def sqrt(x: ArrayLike) -> Array:
     return power(x, 0.5)
 
 
 @implements(np.tanh)
-def tanh(x: npt.ArrayLike) -> Array:
+def tanh(x: ArrayLike) -> Array:
     return _build_array(np.tanh, _tanh_backward, asarray_(x))
 
 
