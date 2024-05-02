@@ -17,13 +17,14 @@ def max_pool2d(
     kernel_size: int | tuple[int, int],
     stride: int | tuple[int, int] | None = None,
     padding: int | tuple[int, int] = 0,
+    dilation: int | tuple[int, int] = 1,
 ) -> Array:
     if stride is None:
         stride = kernel_size
 
     x = asarray_(input)
     x_data = npu.pad(x.data, padding, np.NINF)
-    x_data = npu.unfold(x_data, kernel_size, stride)
+    x_data = npu.unfold(x_data, kernel_size, stride, dilation)
 
     axis = (-2, -1)
     out_data = x_data.max(axis)
@@ -32,7 +33,7 @@ def max_pool2d(
         prevs = (x,)
         mask = x_data == np.expand_dims(out_data, axis)
         backward = lambda out: _max_pool2d_backward(
-            out, x, mask, kernel_size, stride, padding
+            out, x, mask, kernel_size, stride, padding, dilation
         )
     else:
         prevs = backward = None
@@ -52,6 +53,7 @@ def _max_pool2d_backward(
     kernel_size: int | tuple[int, int],
     stride: int | tuple[int, int],
     padding: int | tuple[int, int],
+    dilation: int | tuple[int, int],
 ) -> None:
     assert out.grad is not None
     if x.requires_grad:
@@ -60,7 +62,9 @@ def _max_pool2d_backward(
         count = np.count_nonzero(mask, axis, keepdims=True)  # type: ignore
         out_grad = np.expand_dims(out.grad, axis) / count
         out_grad = np.broadcast_to(out_grad, mask.shape)
-        npu.fold_at(x.grad, out_grad, kernel_size, stride, padding, indices=mask)
+        npu.fold_at(
+            x.grad, out_grad, kernel_size, stride, padding, dilation, indices=mask
+        )
 
 
 ### avg_pool ###

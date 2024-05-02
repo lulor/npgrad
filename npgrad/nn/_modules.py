@@ -104,14 +104,18 @@ class MaxPool2d(Module):
         kernel_size: int | tuple[int, int],
         stride: int | tuple[int, int] | None = None,
         padding: int | tuple[int, int] = 0,
+        dilation: int | tuple[int, int] = 1,
     ) -> None:
         super().__init__()
         self.kernel_size = pair(kernel_size)
         self.stride = pair(kernel_size if stride is None else stride)
         self.padding = pair(padding)
+        self.dilation = pair(dilation)
 
     def forward(self, x: ArrayLike) -> Array:
-        return F.max_pool2d(x, self.kernel_size, self.stride, self.padding)
+        return F.max_pool2d(
+            x, self.kernel_size, self.stride, self.padding, self.dilation
+        )
 
 
 class AvgPool2d(Module):
