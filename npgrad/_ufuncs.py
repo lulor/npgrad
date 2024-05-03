@@ -43,15 +43,15 @@ def _np_reduce_to(x: NDArray, shape: tuple[int, ...]) -> NDArray:
         The reduced array.
     """
     if x.shape != shape:
-        n = x.ndim
-        assert n >= len(shape)
+        assert x.ndim >= len(shape)
         dims = zip_longest(reversed(x.shape), reversed(shape), fillvalue=1)
         axes = []
-        for i, (dim, target_dim) in enumerate(dims, start=1):
-            if dim != target_dim:
+        for axis, (x_dim, target_dim) in enumerate(dims, start=1):
+            if x_dim != target_dim:
                 assert target_dim == 1
-                axes.append(n - i)
-        x = x.sum(tuple(axes)).reshape(shape)
+                axes.append(-axis)
+        x = x.sum(tuple(axes))
+        x = np.reshape(x, shape)  # since we may have removed some dims in the sum
     return x
 
 
