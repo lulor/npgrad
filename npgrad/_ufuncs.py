@@ -55,29 +55,42 @@ def _np_reduce_to(x: NDArray, shape: tuple[int, ...]) -> NDArray:
     return x
 
 
-def _build_array(
+def _dispatch_ufunc(
     np_ufunc: Callable[..., ArrayLike],
     backward_func: Callable[..., None],
-    *arrays: Array,
+    inputs: tuple[ArrayLike, ...],
+    out: Array | tuple | None,  # numpy always wraps "out" in a tuple
 ) -> Array:
-    np_arrays = (x.data for x in arrays)
+    arrays = tuple(asarray_(x) for x in inputs)
     prevs = tuple(x for x in arrays if x.requires_grad)
-    backward = (lambda out: backward_func(out, *arrays)) if prevs else None
-    return Array(
-        np_ufunc(*np_arrays),
-        requires_grad=bool(prevs),
-        _prevs=prevs,
-        _backward=backward,
-    )
+    ndarrays = (x.data for x in arrays)
+
+    if out is not None:
+        if not isinstance(out, Array):
+            if not (len(out) == 1 and isinstance(out[0], Array)):
+                raise TypeError(f"out= must be single Array")
+            out = out[0]
+        if prevs or out.requires_grad:
+            raise RuntimeError("out= is not supported for arrays requiring grad")
+        np_ufunc(*ndarrays, out=out.data)
+    else:
+        backward = (lambda x: backward_func(x, *arrays)) if prevs else None
+        out = Array(
+            np_ufunc(*ndarrays),
+            requires_grad=bool(prevs),
+            _prevs=prevs,
+            _backward=backward,
+        )
+
+    return out
 
 
 ##### ufuncs #####
 
 
 @implements(np.add)
-def add(x1: ArrayLike, x2: ArrayLike) -> Array:
-    x1, x2 = asarray_(x1), asarray_(x2)
-    return _build_array(np.add, _add_backward, x1, x2)
+def add(x1: ArrayLike, x2: ArrayLike, out: Array | None = None) -> Array:
+    return _dispatch_ufunc(np.add, _add_backward, (x1, x2), out)
 
 
 def _add_backward(out: Array, x1: Array, x2: Array) -> None:
@@ -91,14 +104,13 @@ def _add_backward(out: Array, x1: Array, x2: Array) -> None:
 
 
 @implements(np.subtract)
-def subtract(x1: ArrayLike, x2: ArrayLike) -> Array:
-    return add(x1, negative(x2))
+def subtract(x1: ArrayLike, x2: ArrayLike, out: Array | None = None) -> Array:
+    return add(x1, negative(x2), out)
 
 
 @implements(np.multiply)
-def multiply(x1: ArrayLike, x2: ArrayLike) -> Array:
-    x1, x2 = asarray_(x1), asarray_(x2)
-    return _build_array(np.multiply, _multiply_backward, x1, x2)
+def multiply(x1: ArrayLike, x2: ArrayLike, out: Array | None = None) -> Array:
+    return _dispatch_ufunc(np.multiply, _multiply_backward, (x1, x2), out)
 
 
 def _multiply_backward(out: Array, x1: Array, x2: Array) -> None:
@@ -112,9 +124,8 @@ def _multiply_backward(out: Array, x1: Array, x2: Array) -> None:
 
 
 @implements(np.matmul)
-def matmul(x1: ArrayLike, x2: ArrayLike) -> Array:
-    x1, x2 = asarray_(x1), asarray_(x2)
-    return _build_array(np.matmul, _matmul_backward, x1, x2)
+def matmul(x1: ArrayLike, x2: ArrayLike, out: Array | None = None) -> Array:
+    return _dispatch_ufunc(np.matmul, _matmul_backward, (x1, x2), out)
 
 
 def _matmul_backward(out: Array, x1: Array, x2: Array) -> None:
@@ -128,14 +139,13 @@ def _matmul_backward(out: Array, x1: Array, x2: Array) -> None:
 
 
 @implements(np.divide)
-def divide(x1: ArrayLike, x2: ArrayLike) -> Array:
-    return multiply(x1, power(x2, -1))
+def divide(x1: ArrayLike, x2: ArrayLike, out: Array | None = None) -> Array:
+    return multiply(x1, power(x2, -1), out)
 
 
 @implements(np.power)
-def power(x1: ArrayLike, x2: ArrayLike) -> Array:
-    x1, x2 = asarray_(x1), asarray_(x2)
-    return _build_array(np.power, _power_backward, x1, x2)
+def power(x1: ArrayLike, x2: ArrayLike, out: Array | None = None) -> Array:
+    return _dispatch_ufunc(np.power, _power_backward, (x1, x2), out)
 
 
 def _power_backward(out: Array, x1: Array, x2: Array) -> None:
@@ -150,13 +160,13 @@ def _power_backward(out: Array, x1: Array, x2: Array) -> None:
 
 
 @implements(np.negative)
-def negative(x: ArrayLike) -> Array:
-    return multiply(x, -1)
+def negative(x: ArrayLike, out: Array | None = None) -> Array:
+    return multiply(x, -1, out)
 
 
 @implements(np.exp)
-def exp(x: ArrayLike) -> Array:
-    return _build_array(np.exp, _exp_backward, asarray_(x))
+def exp(x: ArrayLike, out: Array | None = None) -> Array:
+    return _dispatch_ufunc(np.exp, _exp_backward, (x,), out)
 
 
 def _exp_backward(out: Array, x: Array) -> None:
@@ -167,8 +177,8 @@ def _exp_backward(out: Array, x: Array) -> None:
 
 
 @implements(np.log)
-def log(x: ArrayLike) -> Array:
-    return _build_array(np.log, _log_backward, asarray_(x))
+def log(x: ArrayLike, out: Array | None = None) -> Array:
+    return _dispatch_ufunc(np.log, _log_backward, (x,), out)
 
 
 def _log_backward(out: Array, x: Array) -> None:
@@ -179,8 +189,8 @@ def _log_backward(out: Array, x: Array) -> None:
 
 
 @implements(np.log2)
-def log2(x: ArrayLike) -> Array:
-    return _build_array(np.log2, _log2_backward, asarray_(x))
+def log2(x: ArrayLike, out: Array | None = None) -> Array:
+    return _dispatch_ufunc(np.log2, _log2_backward, (x,), out)
 
 
 def _log2_backward(out: Array, x: Array) -> None:
@@ -191,8 +201,8 @@ def _log2_backward(out: Array, x: Array) -> None:
 
 
 @implements(np.log10)
-def log10(x: ArrayLike) -> Array:
-    return _build_array(np.log10, _log10_backward, asarray_(x))
+def log10(x: ArrayLike, out: Array | None = None) -> Array:
+    return _dispatch_ufunc(np.log10, _log10_backward, (x,), out)
 
 
 def _log10_backward(out: Array, x: Array) -> None:
@@ -203,13 +213,13 @@ def _log10_backward(out: Array, x: Array) -> None:
 
 
 @implements(np.sqrt)
-def sqrt(x: ArrayLike) -> Array:
-    return power(x, 0.5)
+def sqrt(x: ArrayLike, out: Array | None = None) -> Array:
+    return power(x, 0.5, out)
 
 
 @implements(np.tanh)
-def tanh(x: ArrayLike) -> Array:
-    return _build_array(np.tanh, _tanh_backward, asarray_(x))
+def tanh(x: ArrayLike, out: Array | None = None) -> Array:
+    return _dispatch_ufunc(np.tanh, _tanh_backward, (x,), out)
 
 
 def _tanh_backward(out: Array, x: Array) -> None:
