@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, Iterator
+from typing import Any, Callable, Iterator
 
 import numpy as np
 from numpy.typing import ArrayLike
@@ -32,7 +32,7 @@ def _forward_unimplemented(self, *_, **__) -> None:
 
 class Module:
 
-    forward = _forward_unimplemented
+    forward: Callable[..., Any] = _forward_unimplemented
 
     _parameters: dict[str, Parameter]
     _modules: dict[str, Module]

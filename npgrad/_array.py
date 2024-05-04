@@ -161,7 +161,7 @@ class Array:
         )
 
     def __repr__(self) -> str:
-        return repr(self.data).replace("array", self.__class__.__name__)
+        return repr(self.data).replace("array", type(self).__name__)
 
     def item(self) -> float:
         return self.data.item()

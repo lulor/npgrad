@@ -6,7 +6,7 @@ from numpy.typing import ArrayLike
 from ..._array import Array, asarray_
 from . import _np_utils as npu
 
-_EINSUM_OPTIM = "optimal"
+_EINSUM_OPTIM = True
 
 
 def conv2d(
