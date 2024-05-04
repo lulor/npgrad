@@ -7,6 +7,7 @@ from numpy.typing import ArrayLike
 
 from .._array import Array
 from . import functional as F
+from ._parameter import Parameter
 from ._utils import pair
 
 _DEFAULT_DTYPE = np.float32
@@ -23,27 +24,72 @@ __all__ = [
 ]
 
 
+def _forward_unimplemented(self, *_, **__) -> None:
+    raise NotImplementedError(
+        f"Module [{type(self).__name__}] is missing the required 'forward' function"
+    )
+
+
 class Module:
-    def parameters(self) -> Iterator[Array]:
-        params = []
-        for var in vars(self).values():
-            if isinstance(var, Module):
-                params.extend(var.parameters())
-            elif isinstance(var, Array):
-                params.append(var)
-        return iter(params)
+
+    forward = _forward_unimplemented
+
+    _parameters: dict[str, Parameter]
+    _modules: dict[str, Module]
+
+    def __init__(self) -> None:
+        super().__setattr__("_parameters", {})
+        super().__setattr__("_modules", {})
+
+    def __getattr__(self, name: str) -> Any:
+        if name in self._parameters:
+            return self._parameters[name]
+        if name in self._modules:
+            return self._modules[name]
+        raise AttributeError(
+            f"'{type(self).__name__}' object has no attribute '{name}'"
+        )
+
+    def __delattr__(self, name: str) -> None:
+        if name in self._parameters:
+            del self._parameters[name]
+        elif name in self._modules:
+            del self._modules[name]
+        else:
+            super().__delattr__(name)
+
+    def __setattr__(self, name: str, value: Any) -> None:
+        # Try to delete the object's attr before setting the new value.
+        # Note that this raises 'AttributeError' even in cases in which
+        # 'getattr(self, name)' would succeed (e.g. when accessing class attributes),
+        # so it's important not to use 'getattr'/'hasattr' in the 'try' block.
+        try:
+            delattr(self, name)
+        except AttributeError:
+            pass
+        if isinstance(value, Parameter):
+            self._parameters[name] = value
+        elif isinstance(value, Module):
+            self._modules[name] = value
+        else:
+            super().__setattr__(name, value)
+
+    def __call__(self, *args: Any, **kwargs: Any) -> Any:
+        return self.forward(*args, **kwargs)
+
+    def modules(self) -> Iterator[Module]:
+        yield self
+        for m in self._modules.values():
+            yield from m.modules()
+
+    def parameters(self, recurse: bool = True) -> Iterator[Parameter]:
+        modules = self.modules() if recurse else (self,)
+        for m in modules:
+            yield from m._parameters.values()
 
     def requires_grad(self, requires_grad: bool = True) -> None:
         for p in self.parameters():
             p.requires_grad = requires_grad
-
-    def __call__(self, *args, **kwargs) -> Any:
-        return self.forward(*args, **kwargs)
-
-    def forward(self, *_, **__) -> None:
-        raise NotImplementedError(
-            f'Module [{type(self).__name__}] is missing the required "forward" function'
-        )
 
 
 class ReLU(Module):
@@ -56,15 +102,17 @@ class Linear(Module):
         super().__init__()
         self.in_features = in_features
         self.out_features = out_features
-        self.weight = Array(np.zeros((in_features, out_features), dtype=_DEFAULT_DTYPE))
+        self.weight = Parameter(
+            np.zeros((in_features, out_features), dtype=_DEFAULT_DTYPE)
+        )
         self.bias = (
-            Array(np.zeros(out_features, dtype=_DEFAULT_DTYPE)) if bias else None
+            Parameter(np.zeros(out_features, dtype=_DEFAULT_DTYPE)) if bias else None
         )
         self.requires_grad()
 
     def forward(self, x: ArrayLike) -> Array:
         x = x @ self.weight
-        return x + self.bias if self.bias is not None else x
+        return x if self.bias is None else x + self.bias
 
 
 class Conv2d(Module):
@@ -85,13 +133,13 @@ class Conv2d(Module):
         self.stride = pair(stride)
         self.padding = pair(padding)
         self.dilation = pair(dilation)
-        self.weight = Array(
+        self.weight = Parameter(
             np.zeros(
                 (out_channels, in_channels, *self.kernel_size), dtype=_DEFAULT_DTYPE
             )
         )
         self.bias = (
-            Array(np.zeros(out_channels, dtype=_DEFAULT_DTYPE)) if bias else None
+            Parameter(np.zeros(out_channels, dtype=_DEFAULT_DTYPE)) if bias else None
         )
         self.requires_grad()
 
