@@ -1,6 +1,6 @@
-from .._array import Array
-
 __all__ = ["Parameter"]
+
+from npgrad._array import Array
 
 
 class Parameter(Array):

@@ -5,11 +5,9 @@ from typing import Callable
 import numpy as np
 from numpy.typing import ArrayLike, DTypeLike, NDArray
 
-from .typing import ShapeLike
+from npgrad.typing import ShapeLike
 
 _HANDLED_FUNCTIONS = {}
-
-__all__ = ["Array", "array", "asarray"]
 
 
 def implements(np_function):

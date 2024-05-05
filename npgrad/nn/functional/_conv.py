@@ -1,10 +1,8 @@
-from __future__ import annotations
-
 import numpy as np
 from numpy.typing import ArrayLike
 
-from ..._array import Array, asarray_
-from . import _np_utils as npu
+import npgrad.nn.functional._np_utils as npu
+from npgrad._array import Array, asarray_
 
 _EINSUM_OPTIM = True
 

@@ -1,17 +1,5 @@
 from __future__ import annotations
 
-from typing import Any, Callable, Iterator
-
-import numpy as np
-from numpy.typing import ArrayLike
-
-from .._array import Array
-from . import functional as F
-from ._parameter import Parameter
-from ._utils import pair
-
-_DEFAULT_DTYPE = np.float32
-
 __all__ = [
     "Module",
     "ReLU",
@@ -22,6 +10,18 @@ __all__ = [
     "Softmax",
     "CrossEntropyLoss",
 ]
+
+from typing import Any, Callable, Iterator
+
+import numpy as np
+from numpy.typing import ArrayLike
+
+import npgrad.nn.functional as F
+from npgrad._array import Array
+from npgrad.nn.parameter import Parameter
+from npgrad.nn._utils import pair
+
+_DEFAULT_DTYPE = np.float32
 
 
 def _forward_unimplemented(self, *_, **__) -> None:

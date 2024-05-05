@@ -1,15 +1,11 @@
-from __future__ import annotations
-
 import math
 
 import numpy as np
 from numpy.typing import ArrayLike, NDArray
 
-from ..._array import Array, asarray_
-from .._utils import pair
-from . import _np_utils as npu
-
-### max_pool ###
+import npgrad.nn.functional._np_utils as npu
+from npgrad._array import Array, asarray_
+from npgrad.nn._utils import pair
 
 
 def max_pool2d(
@@ -67,7 +63,7 @@ def _max_pool2d_backward(
         )
 
 
-### avg_pool ###
+#####
 
 
 def avg_pool2d(

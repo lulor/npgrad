@@ -1,11 +1,7 @@
-from __future__ import annotations
-
 import numpy as np
 from numpy.typing import ArrayLike
 
-from ..._array import Array, asarray_
-
-##### relu #####
+from npgrad._array import Array, asarray_
 
 
 def relu(input: ArrayLike) -> Array:
@@ -31,7 +27,7 @@ def _relu_backward(out: Array, x: Array) -> None:
         x.grad[mask] += out.grad[mask]
 
 
-##### softmax #####
+#####
 
 
 def softmax(input: ArrayLike, axis: int) -> Array:

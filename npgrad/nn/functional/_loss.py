@@ -1,9 +1,7 @@
-from __future__ import annotations
-
 import numpy as np
 from numpy.typing import ArrayLike
 
-from ..._array import Array, asarray_
+from npgrad._array import Array, asarray_
 
 
 def cross_entropy(input: ArrayLike, target: ArrayLike) -> Array:
