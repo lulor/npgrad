@@ -18,8 +18,8 @@ from numpy.typing import ArrayLike
 
 import npgrad.nn.functional as F
 from npgrad._array import Array
-from npgrad.nn.parameter import Parameter
 from npgrad.nn._utils import pair
+from npgrad.nn.parameter import Parameter
 
 _DEFAULT_DTYPE = np.float32
 
@@ -103,7 +103,7 @@ class Linear(Module):
         self.in_features = in_features
         self.out_features = out_features
         self.weight = Parameter(
-            np.zeros((in_features, out_features), dtype=_DEFAULT_DTYPE)
+            np.zeros((out_features, in_features), dtype=_DEFAULT_DTYPE)
         )
         self.bias = (
             Parameter(np.zeros(out_features, dtype=_DEFAULT_DTYPE)) if bias else None
@@ -111,8 +111,7 @@ class Linear(Module):
         self.requires_grad()
 
     def forward(self, x: ArrayLike) -> Array:
-        x = x @ self.weight
-        return x if self.bias is None else x + self.bias
+        return F.linear(x, self.weight, self.bias)
 
 
 class Conv2d(Module):

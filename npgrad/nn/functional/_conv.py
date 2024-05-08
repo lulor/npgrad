@@ -18,9 +18,9 @@ def conv2d(
     x, w = asarray_(input), asarray_(weight)
     b = bias if bias is None else asarray_(bias)
 
-    if x.ndim != 4 or w.ndim != 4:
+    if not (x.ndim == w.ndim == 4):
         raise ValueError(
-            f"expected 4 dimensions for input and weight arrays, but got {x.ndim} and {w.ndim}"
+            f"expected 4 dimensions for input and weight, but got {x.ndim} and {w.ndim}"
         )
     if b is not None:
         if b.ndim != 1:
