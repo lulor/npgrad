@@ -8,7 +8,7 @@ from numpy.typing import ArrayLike, DTypeLike, NDArray
 
 from npgrad.typing import ShapeLike
 
-_HANDLED_FUNCTIONS = {}
+_handled_functions = {}
 
 
 def implements(np_function):
@@ -17,7 +17,7 @@ def implements(np_function):
     """
 
     def decorator(func):
-        _HANDLED_FUNCTIONS[np_function] = func
+        _handled_functions[np_function] = func
         return func
 
     return decorator
@@ -60,18 +60,18 @@ class Array:
         return self.data
 
     def __array_ufunc__(self, ufunc, method, *inputs, **kwargs):
-        if ufunc not in _HANDLED_FUNCTIONS or method != "__call__":
+        if ufunc not in _handled_functions or method != "__call__":
             return NotImplemented
-        return _HANDLED_FUNCTIONS[ufunc](*inputs, **kwargs)
+        return _handled_functions[ufunc](*inputs, **kwargs)
 
     def __array_function__(self, func, types, args, kwargs):
-        if func not in _HANDLED_FUNCTIONS:
+        if func not in _handled_functions:
             return NotImplemented
         # Note: this allows subclasses that don't override
         # __array_function__ to handle Array objects.
         if not all(issubclass(t, self.__class__) for t in types):
             return NotImplemented
-        return _HANDLED_FUNCTIONS[func](*args, **kwargs)
+        return _handled_functions[func](*args, **kwargs)
 
     def _check_array_assignment(self, value: NDArray, property: str) -> None:
         if value.shape != self.shape:
