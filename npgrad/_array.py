@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from copy import copy
 from typing import Callable
 
 import numpy as np
@@ -148,6 +149,7 @@ class Array:
     def __getitem__(self, key) -> Array:
         if self.requires_grad:
             prevs = (self,)
+            key = copy(key)
             backward = lambda out: _get_item_backward(out, self, key)
         else:
             prevs = backward = None
@@ -160,6 +162,10 @@ class Array:
 
     def __repr__(self) -> str:
         return repr(self.data).replace("array", type(self).__name__)
+
+    @property
+    def T(self) -> Array:
+        return self.transpose()
 
     def item(self) -> float:
         return self.data.item()
@@ -232,17 +238,20 @@ class Array:
     def squeeze(self, axis: ShapeLike | None = None) -> Array:
         return np.squeeze(self, axis)  # type: ignore
 
+    def transpose(self, axes: ShapeLike | None = None) -> Array:
+        return np.transpose(self, axes)  # type: ignore
+
     def sum(self, axis: ShapeLike | None = None, keepdims: bool = False) -> Array:
-        return np.sum(self, axis=axis, keepdims=keepdims)
+        return np.sum(self, axis, keepdims=keepdims)
 
     def mean(self, axis: ShapeLike | None = None, keepdims: bool = False) -> Array:
-        return np.mean(self, axis=axis, keepdims=keepdims)
+        return np.mean(self, axis, keepdims=keepdims)
 
     def max(self, axis: ShapeLike | None = None, keepdims: bool = False) -> Array:
-        return np.amax(self, axis=axis, keepdims=keepdims)
+        return np.amax(self, axis, keepdims=keepdims)
 
     def min(self, axis: ShapeLike | None = None, keepdims: bool = False) -> Array:
-        return np.amin(self, axis=axis, keepdims=keepdims)
+        return np.amin(self, axis, keepdims=keepdims)
 
 
 def asarray_(data: ArrayLike) -> Array:
