@@ -6,6 +6,7 @@ from typing import Callable
 import numpy as np
 from numpy.typing import ArrayLike, DTypeLike, NDArray
 
+from npgrad._grad import is_grad_enabled
 from npgrad.typing import ShapeLike
 
 _handled_functions = {}
@@ -43,9 +44,10 @@ class Array:
         assert not _prevs or requires_grad, "non-leaf arrays must require grad"
         self._data = np.asarray(data, dtype=dtype)
         self._grad = None
-        self._requires_grad = requires_grad
-        self._prevs = frozenset(_prevs) if _prevs else None
-        self._backward = _backward
+        grad_enabled = is_grad_enabled()
+        self._requires_grad = requires_grad and grad_enabled
+        self._prevs = frozenset(_prevs) if _prevs and grad_enabled else None
+        self._backward = _backward if grad_enabled else None
         self._retains_grad = False
 
     def __array__(self, dtype=None, copy=None) -> NDArray:
