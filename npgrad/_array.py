@@ -1,13 +1,15 @@
 from __future__ import annotations
 
 from copy import copy
-from typing import Callable
+from typing import Callable, TypeVar
 
 import numpy as np
 from numpy.typing import ArrayLike, DTypeLike, NDArray
 
 from npgrad._grad import is_grad_enabled
 from npgrad.typing import ShapeLike
+
+_Array = TypeVar("_Array", bound="Array")
 
 _handled_functions = {}
 
@@ -134,7 +136,7 @@ class Array:
             raise RuntimeError("can only change requires_grad for leaf arrays")
         self._requires_grad = value
 
-    def requires_grad_(self, requires_grad: bool = True) -> Array:
+    def requires_grad_(self: _Array, requires_grad: bool = True) -> _Array:
         self.requires_grad = requires_grad
         return self
 

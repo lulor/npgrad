@@ -11,17 +11,33 @@ __all__ = [
     "CrossEntropyLoss",
 ]
 
-from typing import Any, Callable, Iterator
+import math
+from typing import Any, Callable, Iterator, TypeVar
 
 import numpy as np
 from numpy.typing import ArrayLike
 
-import npgrad.nn.functional as F
 from npgrad._array import Array
+from npgrad.nn import functional as F
+from npgrad.nn import init
 from npgrad.nn._utils import pair
 from npgrad.nn.parameter import Parameter
 
+_Module = TypeVar("_Module", bound="Module")
+
 _DEFAULT_DTYPE = np.float32
+
+
+def _empty_param(*shape: int) -> Parameter:
+    return Parameter(np.empty(shape, dtype=_DEFAULT_DTYPE))
+
+
+def _reset_param(p: Parameter, fan: int) -> None:
+    bound = 1 / math.sqrt(fan)
+    init.uniform_(p, -bound, bound)
+
+
+#####
 
 
 def _forward_unimplemented(self, *_, **__) -> None:
@@ -87,9 +103,17 @@ class Module:
         for m in modules:
             yield from m._parameters.values()
 
-    def requires_grad(self, requires_grad: bool = True) -> None:
+    def requires_grad_(self: _Module, requires_grad: bool = True) -> _Module:
         for p in self.parameters():
-            p.requires_grad = requires_grad
+            p.requires_grad_(requires_grad)
+        return self
+
+    def zero_grad(self) -> None:
+        for p in self.parameters():
+            p.grad = None
+
+
+#####
 
 
 class ReLU(Module):
@@ -102,13 +126,15 @@ class Linear(Module):
         super().__init__()
         self.in_features = in_features
         self.out_features = out_features
-        self.weight = Parameter(
-            np.zeros((out_features, in_features), dtype=_DEFAULT_DTYPE)
-        )
-        self.bias = (
-            Parameter(np.zeros(out_features, dtype=_DEFAULT_DTYPE)) if bias else None
-        )
-        self.requires_grad()
+        self.weight = _empty_param(out_features, in_features)
+        self.bias = _empty_param(out_features) if bias else None
+        self.reset_parameters()
+
+    def reset_parameters(self) -> None:
+        fan_in = self.in_features
+        for p in (self.weight, self.bias):
+            if p is not None:
+                _reset_param(p, fan_in)
 
     def forward(self, x: ArrayLike) -> Array:
         return F.linear(x, self.weight, self.bias)
@@ -132,15 +158,16 @@ class Conv2d(Module):
         self.stride = pair(stride)
         self.padding = pair(padding)
         self.dilation = pair(dilation)
-        self.weight = Parameter(
-            np.zeros(
-                (out_channels, in_channels, *self.kernel_size), dtype=_DEFAULT_DTYPE
-            )
-        )
-        self.bias = (
-            Parameter(np.zeros(out_channels, dtype=_DEFAULT_DTYPE)) if bias else None
-        )
-        self.requires_grad()
+        self.weight = _empty_param(out_channels, in_channels, *self.kernel_size)
+        self.bias = _empty_param(out_channels) if bias else None
+        self.reset_parameters()
+
+    def reset_parameters(self) -> None:
+        fan_in = self.in_channels
+        fan_in_k = fan_in * math.prod(self.kernel_size)  # fan_in * receptive_field
+        for p, k in ((self.weight, fan_in_k), (self.bias, fan_in)):
+            if p is not None:
+                _reset_param(p, k)
 
     def forward(self, x: ArrayLike) -> Array:
         return F.conv2d(

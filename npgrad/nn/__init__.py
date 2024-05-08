@@ -1,6 +1,6 @@
-__all__ = ["functional", "modules", "parameter"]
+__all__ = ["functional", "init", "modules", "parameter"]
 
-from . import functional
+from . import functional, init
 from .modules import *
 from .parameter import *
 

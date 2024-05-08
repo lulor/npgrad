@@ -6,10 +6,10 @@ from numpy.typing import ArrayLike, NDArray
 from npgrad._array import Array, asarray_, implements
 from npgrad.typing import ShapeLike
 
-S = TypeVar("S", bound=ShapeLike | None)
+_ShapeLike = TypeVar("_ShapeLike", bound=ShapeLike | None)
 
 
-def _copy_if_list(x: S) -> S:
+def _copy_if_list(x: _ShapeLike) -> _ShapeLike:
     return x.copy() if isinstance(x, list) else x
 
 
