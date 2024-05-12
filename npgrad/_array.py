@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from copy import copy
-from typing import Callable, TypeVar
+from typing import Any, Callable, TypeVar
 
 import numpy as np
 from numpy.typing import ArrayLike, DTypeLike, NDArray
@@ -26,7 +26,7 @@ def implements(np_function):
     return decorator
 
 
-def _get_item_backward(out: Array, x: Array, key) -> None:
+def _getitem_backward(out: Array, x: Array, key: Any) -> None:
     assert out.grad is not None
     if x.requires_grad:
         assert x.grad is not None
@@ -150,11 +150,11 @@ class Array:
     def __len__(self) -> int:
         return len(self.data)
 
-    def __getitem__(self, key) -> Array:
+    def __getitem__(self, key: Any) -> Array:
         if self.requires_grad:
             prevs = (self,)
             key = copy(key)
-            backward = lambda out: _get_item_backward(out, self, key)
+            backward = lambda out: _getitem_backward(out, self, key)
         else:
             prevs = backward = None
         return Array(
@@ -235,6 +235,9 @@ class Array:
 
     def __rtruediv__(self, other: ArrayLike) -> Array:
         return np.divide(other, self)  # type: ignore
+
+    def __abs__(self) -> Array:
+        return np.absolute(self)  # type: ignore
 
     def reshape(self, newshape: ShapeLike) -> Array:
         return np.reshape(self, newshape)  # type: ignore

@@ -209,3 +209,19 @@ def _tanh_backward(out: Array, x: Array) -> None:
     if x.requires_grad:
         assert x.grad is not None
         x.grad += out.grad * (1 - out.data**2)
+
+
+@implements(np.abs)
+@implements(np.absolute)
+def absolute(x: ArrayLike, out: Array | None = None) -> Array:
+    return _dispatch_ufunc(np.absolute, _absolute_backward, (x,), out)
+
+
+abs = absolute
+
+
+def _absolute_backward(out: Array, x: Array) -> None:
+    assert out.grad is not None
+    if x.requires_grad:
+        assert x.grad is not None
+        x.grad += np.sign(x.data) * out.grad
