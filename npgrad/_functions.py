@@ -3,7 +3,8 @@ from typing import Callable, TypeVar
 import numpy as np
 from numpy.typing import ArrayLike, NDArray
 
-from npgrad._array import Array, asarray_, implements
+from npgrad._array import Array, implements, in_array, out_array
+from npgrad._grad import is_grad_enabled
 from npgrad.typing import ShapeLike
 
 _ShapeLike = TypeVar("_ShapeLike", bound=ShapeLike | None)
@@ -41,18 +42,14 @@ def _reshape(
     axis_or_shape: ShapeLike | None,
 ) -> Array:
     assert np_func in (np.reshape, np.squeeze, np.expand_dims)
-    x = asarray_(x)
-    if x.requires_grad:
+    x = in_array(x)
+    out_data = np_func(x.data, axis_or_shape)  # type: ignore
+    if x.requires_grad and is_grad_enabled():
         prevs = (x,)
         backward = lambda out: _reshape_backward(out, x)
     else:
         prevs = backward = None
-    return Array(
-        np_func(x.data, axis_or_shape),  # type: ignore
-        requires_grad=x.requires_grad,
-        _prevs=prevs,
-        _backward=backward,
-    )
+    return out_array(out_data, prevs, backward)
 
 
 def _reshape_backward(out: Array, x: Array) -> None:
@@ -67,19 +64,15 @@ def _reshape_backward(out: Array, x: Array) -> None:
 
 @implements(np.transpose)
 def transpose(x: ArrayLike, axes: ShapeLike | None = None) -> Array:
-    x = asarray_(x)
-    if x.requires_grad:
+    x = in_array(x)
+    out_data = np.transpose(x.data, axes)
+    if x.requires_grad and is_grad_enabled():
         prevs = (x,)
         axes = _copy_if_list(axes)
         backward = lambda out: _transpose_backward(out, x, axes)
     else:
         prevs = backward = None
-    return Array(
-        np.transpose(x.data, axes),
-        requires_grad=x.requires_grad,
-        _prevs=prevs,
-        _backward=backward,
-    )
+    return out_array(out_data, prevs, backward)
 
 
 def _transpose_backward(out: Array, x: Array, axes: ShapeLike | None) -> None:
@@ -105,19 +98,15 @@ def swapaxes(x: ArrayLike, axis1: int, axis2: int) -> Array:
 
 @implements(np.moveaxis)
 def moveaxis(x: ArrayLike, source: ShapeLike, destination: ShapeLike) -> Array:
-    x = asarray_(x)
-    if x.requires_grad:
+    x = in_array(x)
+    out_data = np.moveaxis(x.data, source, destination)
+    if x.requires_grad and is_grad_enabled():
         prevs = (x,)
         source, destination = _copy_if_list(source), _copy_if_list(destination)
         backward = lambda out: _moveaxis_backward(out, x, source, destination)
     else:
         prevs = backward = None
-    return Array(
-        np.moveaxis(x.data, source, destination),
-        requires_grad=x.requires_grad,
-        _prevs=prevs,
-        _backward=backward,
-    )
+    return out_array(out_data, prevs, backward)
 
 
 def _moveaxis_backward(
@@ -149,20 +138,16 @@ def _sum_mean(
     keepdims: bool,
 ) -> Array:
     assert np_func in (np.sum, np.mean)
-    x = asarray_(x)
-    if x.requires_grad:
+    x = in_array(x)
+    out_data = np_func(x.data, axis=axis, keepdims=keepdims)
+    if x.requires_grad and is_grad_enabled():
         prevs = (x,)
         axis_to_expand = None if keepdims else _copy_if_list(axis)
         is_mean = np_func is np.mean
         backward = lambda out: _sum_mean_backward(out, x, axis_to_expand, is_mean)
     else:
         prevs = backward = None
-    return Array(
-        np_func(x.data, axis=axis, keepdims=keepdims),
-        requires_grad=x.requires_grad,
-        _prevs=prevs,
-        _backward=backward,
-    )
+    return out_array(out_data, prevs, backward)
 
 
 def _sum_mean_backward(
@@ -199,19 +184,15 @@ def _min_max(
     keepdims: bool,
 ) -> Array:
     assert np_func in (np.amin, np.amax)
-    x = asarray_(x)
-    if x.requires_grad:
+    x = in_array(x)
+    out_data = np_func(x.data, axis=axis, keepdims=keepdims)
+    if x.requires_grad and is_grad_enabled():
         prevs = (x,)
         axis_to_expand = None if keepdims else _copy_if_list(axis)
         backward = lambda out: _min_max_backward(out, x, axis_to_expand)
     else:
         prevs = backward = None
-    return Array(
-        np_func(x.data, axis=axis, keepdims=keepdims),
-        requires_grad=x.requires_grad,
-        _prevs=prevs,
-        _backward=backward,
-    )
+    return out_array(out_data, prevs, backward)
 
 
 def _min_max_backward(out: Array, x: Array, axis: ShapeLike | None) -> None:

@@ -43,13 +43,13 @@ class Array:
         _backward: Callable[[Array], None] | None = None,
     ) -> None:
         assert bool(_prevs) == bool(_backward), "_prevs and _backward mismatch"
+        assert not _prevs or is_grad_enabled(), "global grad is disabled"
         assert not _prevs or requires_grad, "non-leaf arrays must require grad"
         self._data = np.asarray(data, dtype=dtype)
         self._grad = None
-        grad_enabled = is_grad_enabled()
-        self._requires_grad = requires_grad and grad_enabled
-        self._prevs = frozenset(_prevs) if _prevs and grad_enabled else None
-        self._backward = _backward if grad_enabled else None
+        self._requires_grad = requires_grad
+        self._prevs = frozenset(_prevs) if _prevs else None
+        self._backward = _backward
         self._retains_grad = False
 
     def __array__(self, dtype=None, copy=None) -> NDArray:
@@ -261,26 +261,16 @@ class Array:
         return np.amin(self, axis, keepdims=keepdims)
 
 
-def asarray_(data: ArrayLike) -> Array:
-    """
-    Wrap the input object in an array if necessary.
-
-    Parameters
-    ----------
-    data : array_like
-        The object to convert into an array.
-        If data is already an array with requires_grad=True, then data itself is returned.
-        Otherwise, a new wrapper array will be created.
-        In any case, if data is already an array/ndarray, the returned object will share
-        the same underlying ndarray with it (i.e., no copy operation is performed).
-
-    Returns
-    -------
-    out : array
-        The input object in case it is already an array with requires_grad=True,
-        otherwise a new wrapper array containing the input data.
-    """
+def in_array(data: ArrayLike) -> Array:
     return data if isinstance(data, Array) and data.requires_grad else Array(data)
+
+
+def out_array(
+    data: ArrayLike,
+    prevs: tuple[Array, ...] | None = None,
+    backward: Callable[[Array], None] | None = None,
+) -> Array:
+    return Array(data, requires_grad=bool(prevs), _prevs=prevs, _backward=backward)
 
 
 def array(

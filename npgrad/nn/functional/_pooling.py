@@ -4,7 +4,8 @@ import numpy as np
 from numpy.typing import ArrayLike, NDArray
 
 import npgrad.nn.functional._np_utils as npu
-from npgrad._array import Array, asarray_
+from npgrad._array import Array, in_array, out_array
+from npgrad._grad import is_grad_enabled
 from npgrad.nn._utils import pair
 
 
@@ -18,14 +19,14 @@ def max_pool2d(
     if stride is None:
         stride = kernel_size
 
-    x = asarray_(input)
+    x = in_array(input)
     x_data = npu.pad(x.data, padding, np.NINF)
     x_data = npu.unfold(x_data, kernel_size, stride, dilation)
 
     axis = (-2, -1)
     out_data = x_data.max(axis)
 
-    if x.requires_grad:
+    if x.requires_grad and is_grad_enabled():
         prevs = (x,)
         mask = x_data == np.expand_dims(out_data, axis)
         backward = lambda out: _max_pool2d_backward(
@@ -34,12 +35,7 @@ def max_pool2d(
     else:
         prevs = backward = None
 
-    return Array(
-        out_data,
-        requires_grad=x.requires_grad,
-        _prevs=prevs,
-        _backward=backward,
-    )
+    return out_array(out_data, prevs, backward)
 
 
 def _max_pool2d_backward(
@@ -75,13 +71,13 @@ def avg_pool2d(
     if stride is None:
         stride = kernel_size
 
-    x = asarray_(input)
+    x = in_array(input)
     x_data = npu.pad(x.data, padding)
     x_data = npu.unfold(x_data, kernel_size, stride)
 
     out_data = x_data.mean((-2, -1))
 
-    if x.requires_grad:
+    if x.requires_grad and is_grad_enabled():
         prevs = (x,)
         backward = lambda out: _avg_pool2d_backward(
             out, x, kernel_size, stride, padding
@@ -89,12 +85,7 @@ def avg_pool2d(
     else:
         prevs = backward = None
 
-    return Array(
-        out_data,
-        requires_grad=x.requires_grad,
-        _prevs=prevs,
-        _backward=backward,
-    )
+    return out_array(out_data, prevs, backward)
 
 
 def _avg_pool2d_backward(

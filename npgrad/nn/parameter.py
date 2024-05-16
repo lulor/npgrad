@@ -12,9 +12,7 @@ class Parameter(Array):
         dtype: DTypeLike = None,
         requires_grad: bool = True,
     ) -> None:
-        super().__init__(data, dtype)
-        # set requires_grad even if grad is globally disabled
-        self.requires_grad = requires_grad
+        super().__init__(data, dtype, requires_grad)
 
     def __repr__(self) -> str:
         return repr(self.data).replace("array", "Param")

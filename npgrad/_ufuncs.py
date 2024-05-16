@@ -4,7 +4,8 @@ from typing import Callable
 import numpy as np
 from numpy.typing import ArrayLike, NDArray
 
-from npgrad._array import Array, asarray_, implements
+from npgrad._array import Array, implements, in_array, out_array
+from npgrad._grad import is_grad_enabled
 
 
 def _np_reduce_to(x: NDArray, shape: tuple[int, ...]) -> NDArray:
@@ -43,9 +44,9 @@ def _dispatch_ufunc(
     inputs: tuple[ArrayLike, ...],
     out: Array | tuple | None,  # numpy always wraps "out" in a tuple
 ) -> Array:
-    arrays = tuple(asarray_(x) for x in inputs)
-    prevs = tuple(x for x in arrays if x.requires_grad)
+    arrays = tuple(in_array(x) for x in inputs)
     ndarrays = (x.data for x in arrays)
+    prevs = tuple(x for x in arrays if x.requires_grad) if is_grad_enabled() else None
 
     if out is not None:
         if not isinstance(out, Array):
@@ -56,13 +57,9 @@ def _dispatch_ufunc(
             raise RuntimeError("out= is not supported for arrays requiring grad")
         np_ufunc(*ndarrays, out=out.data)
     else:
+        out_data = np_ufunc(*ndarrays)
         backward = (lambda x: backward_func(x, *arrays)) if prevs else None
-        out = Array(
-            np_ufunc(*ndarrays),
-            requires_grad=bool(prevs),
-            _prevs=prevs,
-            _backward=backward,
-        )
+        out = out_array(out_data, prevs, backward)
 
     return out
 

@@ -2,7 +2,8 @@ import numpy as np
 from numpy.typing import ArrayLike
 
 import npgrad.nn.functional._np_utils as npu
-from npgrad._array import Array, asarray_
+from npgrad._array import Array, in_array, out_array
+from npgrad._grad import is_grad_enabled
 
 _EINSUM_OPTIM = True
 
@@ -15,8 +16,8 @@ def conv2d(
     padding: int | tuple[int, int] = 0,
     dilation: int | tuple[int, int] = 1,
 ) -> Array:
-    x, w = asarray_(input), asarray_(weight)
-    b = bias if bias is None else asarray_(bias)
+    x, w = in_array(input), in_array(weight)
+    b = bias if bias is None else in_array(bias)
 
     if not (x.ndim == w.ndim == 4):
         raise ValueError(
@@ -33,14 +34,14 @@ def conv2d(
 
     out_data = np.einsum("nixyhw,oihw->noxy", x_data, w.data, optimize=_EINSUM_OPTIM)
 
-    prevs = tuple(p for p in (x, w) if p.requires_grad)
+    prevs = tuple(p for p in (x, w) if p.requires_grad) if is_grad_enabled() else None
 
     if prevs:
         backward = lambda out: _conv2d_backward(out, x, w, stride, padding, dilation)
     else:
         backward = None
 
-    out = Array(out_data, requires_grad=bool(prevs), _prevs=prevs, _backward=backward)
+    out = out_array(out_data, prevs, backward)
 
     return out if b is None else out + np.expand_dims(b, (0, -2, -1))
 

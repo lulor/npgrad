@@ -1,6 +1,6 @@
 from numpy.typing import ArrayLike
 
-from npgrad._array import Array, asarray_
+from npgrad._array import Array, in_array
 
 
 def linear(
@@ -8,8 +8,8 @@ def linear(
     weight: ArrayLike,
     bias: ArrayLike | None = None,
 ) -> Array:
-    x, w = asarray_(input), asarray_(weight)
-    b = bias if bias is None else asarray_(bias)
+    x, w = in_array(input), in_array(weight)
+    b = bias if bias is None else in_array(bias)
 
     if x.ndim not in (1, 2):
         raise ValueError(f"input must have 1 or 2 dims (got {x.ndim})")

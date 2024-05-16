@@ -1,11 +1,11 @@
 import numpy as np
 from numpy.typing import ArrayLike
 
-from npgrad._array import Array, asarray_
+from npgrad._array import Array, in_array
 
 
 def cross_entropy(input: ArrayLike, target: ArrayLike) -> Array:
-    x, target = asarray_(input), np.asarray(target)
+    x, target = in_array(input), np.asarray(target)
 
     if x.ndim == 1:
         x = np.expand_dims(x, 0)
